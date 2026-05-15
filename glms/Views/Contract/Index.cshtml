@@ -5,13 +5,21 @@
 <a asp-action="Create" class="btn btn-primary">New Contract</a>
 
 <form method="get" class="mt-2">
+
     <select name="status" class="form-control">
-        <option value="">All</option>
-        <option>Draft</option>
-        <option>Active</option>
-        <option>Expired</option>
-        <option>On Hold</option>
+        <option value="">All Statuses</option>
+        <option value="Draft" selected="@(Context.Request.Query["status"] == "Draft")">Draft</option>
+        <option value="Active" selected="@(Context.Request.Query["status"] == "Active")">Active</option>
+        <option value="Expired" selected="@(Context.Request.Query["status"] == "Expired")">Expired</option>
+        <option value="On Hold" selected="@(Context.Request.Query["status"] == "On Hold")">On Hold</option>
     </select>
+
+    <input type="date" name="startDate" class="form-control mt-2"
+           value="@Context.Request.Query["startDate"]" />
+
+    <input type="date" name="endDate" class="form-control mt-2"
+           value="@Context.Request.Query["endDate"]" />
+
     <button class="btn btn-info mt-2">Filter</button>
 </form>
 
