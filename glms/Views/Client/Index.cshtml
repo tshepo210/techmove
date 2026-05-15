@@ -1,0 +1,24 @@
+﻿@model IEnumerable<glms.Models.Entities.Client>
+
+<h2>Clients</h2>
+
+<a asp-action="Create" class="btn btn-primary">Add Client</a>
+
+<table class="table mt-3">
+    <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>PhoneNumber</th>
+        <th>Region</th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.Name</td>
+            <td>@item.Email<br />@item.Email</td>
+            <td>@item.PhoneNumber<br />@item.PhoneNumber</td>
+            <td>@item.Region</td>
+        </tr>
+    }
+</table>

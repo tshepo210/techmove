@@ -1,0 +1,40 @@
+﻿@model IEnumerable<glms.Models.Entities.Contract>
+
+<h2>Contracts</h2>
+
+<a asp-action="Create" class="btn btn-primary">New Contract</a>
+
+<form method="get" class="mt-2">
+    <select name="status" class="form-control">
+        <option value="">All</option>
+        <option>Draft</option>
+        <option>Active</option>
+        <option>Expired</option>
+        <option>On Hold</option>
+    </select>
+    <button class="btn btn-info mt-2">Filter</button>
+</form>
+
+<table class="table mt-3">
+    <tr>
+        <th>Client</th>
+        <th>Status</th>
+        <th>Dates</th>
+        <th>File</th>
+    </tr>
+
+    @foreach (var c in Model)
+    {
+        <tr>
+            <td>@c.Client.Name</td>
+            <td>@c.Status</td>
+            <td>@c.StartDate.ToShortDateString() - @c.EndDate.ToShortDateString()</td>
+            <td>
+                @if (c.FilePath != null)
+                {
+                    <a href="@c.FilePath">Download</a>
+                }
+            </td>
+        </tr>
+    }
+</table>

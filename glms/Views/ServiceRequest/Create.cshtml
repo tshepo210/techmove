@@ -1,0 +1,26 @@
+﻿@model glms.Models.Entities.ServiceRequest
+
+<h2>Create Service Request</h2>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <select asp-for="ContractId" class="form-control">
+        @foreach (var c in ViewBag.Contracts)
+        {
+            <option value="@c.Id">
+                Contract @c.Id (@c.Status)
+            </option>
+        }
+    </select>
+
+    <input asp-for="Description" class="form-control mt-2" placeholder="Description" />
+    <input asp-for="Cost" class="form-control mt-2" placeholder="Cost" />
+
+    <select asp-for="Status" class="form-control mt-2">
+        <option>Pending</option>
+        <option>Approved</option>
+        <option>Rejected</option>
+    </select>
+
+    <button class="btn btn-success mt-3">Submit</button>
+</form>

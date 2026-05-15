@@ -1,0 +1,27 @@
+﻿@model glms.Models.Entities.Client
+
+<h2>Create Client</h2>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+
+    <div asp-validation-summary="All" class="text-danger"></div>
+
+    <input asp-for="Name" class="form-control" placeholder="Name" />
+    <span asp-validation-for="Name" class="text-danger"></span>
+
+    <input asp-for="Email" class="form-control mt-2" placeholder="Email" />
+    <span asp-validation-for="Email" class="text-danger"></span>
+
+    <input asp-for="PhoneNumber" class="form-control mt-2" placeholder="Phone Number" />
+    <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+
+    <input asp-for="Region" class="form-control mt-2" placeholder="Region" />
+    <span asp-validation-for="Region" class="text-danger"></span>
+
+    <button type="submit" class="btn btn-success mt-3">Save</button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
