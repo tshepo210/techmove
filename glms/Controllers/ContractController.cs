@@ -12,12 +12,29 @@ public class ContractController : Controller
         _context = context;
     }
 
-    public IActionResult Index(string status)
+    public IActionResult Index(string status, DateTime? startDate, DateTime? endDate)
     {
-        var contracts = _context.Set<Contract>().Include(c => c.Client).AsQueryable();
+        var contracts = _context.Set<Contract>()
+            .Include(c => c.Client)
+            .AsQueryable();
 
+        // Filter by status
         if (!string.IsNullOrEmpty(status))
+        {
             contracts = contracts.Where(c => c.Status == status);
+        }
+
+        // Filter by start date
+        if (startDate.HasValue)
+        {
+            contracts = contracts.Where(c => c.StartDate >= startDate.Value);
+        }
+
+        // Filter by end date
+        if (endDate.HasValue)
+        {
+            contracts = contracts.Where(c => c.EndDate <= endDate.Value);
+        }
 
         return View(contracts.ToList());
     }
