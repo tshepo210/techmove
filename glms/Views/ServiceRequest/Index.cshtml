@@ -10,6 +10,8 @@
         <th>Contract</th>
         <th>Description</th>
         <th>Status</th>
+        <th>Cost</th>
+        <th>Converted (ZAR)</th>
     </tr>
 
     @foreach (var r in Model)
@@ -19,6 +21,8 @@
             <td>@r.ContractId</td>
             <td>@r.Description</td>
             <td>@r.Status</td>
+            <td>@r.Cost @r.Currency</td>
+            <td>@r.ConvertedCost.ToString("0.00")</td>
         </tr>
     }
 </table>

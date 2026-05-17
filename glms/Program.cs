@@ -1,4 +1,6 @@
 using glms.Data;
+using glms.Interfaces;
+using glms.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +10,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Correct registrations
+builder.Services.AddHttpClient<IExchangeRateProvider, ExchangeRateProvider>();
+builder.Services.AddScoped<ICurrencyService, CurrencyService>();
+
+builder.Services.AddHttpClient<CurrencyService>();
+
+//builder.Services.AddHttpClient<ICurrencyService, CurrencyService>();
 
 var app = builder.Build();
 
@@ -25,6 +35,8 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
+
+app.MapControllers();
 
 app.MapControllerRoute(
     name: "default",
