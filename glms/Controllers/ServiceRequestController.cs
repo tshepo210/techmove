@@ -1,20 +1,25 @@
 ﻿using glms.Data;
+using glms.Interfaces;
 using glms.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // Add this using directive
+using Microsoft.EntityFrameworkCore;
 
+[Route("[controller]")]
 public class ServiceRequestController : Controller
 {
     private readonly AppDbContext _context;
+    private readonly ICurrencyService _currencyService;
 
-    public ServiceRequestController(AppDbContext context)
+    public ServiceRequestController(AppDbContext context, ICurrencyService currencyService)
     {
         _context = context;
+        _currencyService = currencyService;
     }
 
+    [HttpGet("")]
     public IActionResult Index()
     {
-        var requests = _context.Set<ServiceRequest>() // Use Set<T>() to access the DbSet
+        var requests = _context.ServiceRequests
             .Include(r => r.Contract)
             .ThenInclude(c => c.Client)
             .ToList();
@@ -22,27 +27,58 @@ public class ServiceRequestController : Controller
         return View(requests);
     }
 
+    [HttpGet("Create")]
     public IActionResult Create()
     {
-        ViewBag.Contracts = _context.Set<Contract>().ToList(); // Use Set<T>() for Contracts
+        ViewBag.Contracts = _context.Contracts.ToList();
         return View();
     }
 
-    [HttpPost]
-    public IActionResult Create(ServiceRequest request)
+    [HttpPost("Create")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(ServiceRequest request)
     {
-        var contract = _context.Set<Contract>().Find(request.ContractId); // Use Set<T>() for Contracts
+        // Validate contract
+        var contract = await _context.Contracts
+            .FirstOrDefaultAsync(c => c.Id == request.ContractId);
 
-        if (contract.Status == "Expired" || contract.Status == "On Hold")
+        if (contract == null)
         {
-            ModelState.AddModelError("", "Cannot create request for inactive contract.");
-            ViewBag.Contracts = _context.Set<Contract>().ToList(); // Use Set<T>() for Contracts
+            ModelState.AddModelError("", "Contract not found.");
+        }
+        else if (contract.Status == "Expired" || contract.Status == "On Hold")
+        {
+            ModelState.AddModelError("",
+                "Service Request cannot be created for Expired or On Hold contracts.");
+        }
+
+        // Validate model
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Contracts = _context.Contracts.ToList();
             return View(request);
         }
 
-        _context.Set<ServiceRequest>().Add(request); // Use Set<T>() for ServiceRequests
-        _context.SaveChanges();
+        // Currency conversion
+        try
+        {
+            request.ConvertedCost = await _currencyService.ConvertCurrency(
+                request.Cost,
+                request.Currency,
+                "ZAR"
+            );
+        }
+        catch
+        {
+            ModelState.AddModelError("", "Currency conversion failed.");
+            ViewBag.Contracts = _context.Contracts.ToList();
+            return View(request);
+        }
 
-        return RedirectToAction("Index");
+        // Save
+        _context.ServiceRequests.Add(request);
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
     }
 }

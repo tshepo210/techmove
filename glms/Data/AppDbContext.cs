@@ -9,8 +9,23 @@ namespace glms.Data
             : base(options)
         {
         }
+
         public DbSet<Client> Clients { get; set; }
         public DbSet<Contract> Contracts { get; set; }
         public DbSet<ServiceRequest> ServiceRequests { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<ServiceRequest>(entity =>
+            {
+                entity.Property(s => s.Cost)
+                      .HasPrecision(18, 2);
+
+                entity.Property(s => s.ConvertedCost)
+                      .HasPrecision(18, 2);
+            });
+        }
     }
 }

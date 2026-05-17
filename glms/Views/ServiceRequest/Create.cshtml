@@ -4,6 +4,7 @@
 
 <form asp-action="Create" method="post">
     @Html.AntiForgeryToken()
+    <div asp-validation-summary="All" class="text-danger"></div>
     <select asp-for="ContractId" class="form-control">
         @foreach (var c in ViewBag.Contracts)
         {
@@ -12,6 +13,13 @@
             </option>
         }
     </select>
+    <select asp-for="Currency" class="form-control mt-2">
+        <option value="">-- Select Currency --</option>
+        <option value="USD">USD</option>
+        <option value="ZAR">ZAR</option>
+        <option value="EUR">EUR</option>
+    </select>
+    <span asp-validation-for="Currency" class="text-danger"></span>
 
     <input asp-for="Description" class="form-control mt-2" placeholder="Description" />
     <input asp-for="Cost" class="form-control mt-2" placeholder="Cost" />
