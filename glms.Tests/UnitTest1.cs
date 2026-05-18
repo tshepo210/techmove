@@ -1,4 +1,4 @@
-﻿namespace glms.Tests;
+namespace glms.Tests;
 
 public class UnitTest1
 {
