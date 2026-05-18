@@ -38,10 +38,10 @@ public class ContractController : Controller
 
         return View(contracts.ToList());
     }
-
+    [HttpGet]
     public IActionResult Create()
     {
-        ViewBag.Clients = _context.Set<Client>().ToList();
+        ViewBag.Clients = _context.Clients.ToList();
         return View();
     }
 
@@ -50,17 +50,43 @@ public class ContractController : Controller
     {
         if (file != null)
         {
-            var path = Path.Combine("wwwroot/files", file.FileName);
+            // Validate file type
+            if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                ModelState.AddModelError("", "Only PDF files allowed.");
+            }
 
-            using (var stream = new FileStream(path, FileMode.Create))
+            // STOP if validation fails
+            if (!ModelState.IsValid)
+            {
+                ViewBag.Clients = _context.Clients.ToList();
+                return View(contract);
+            }
+
+            // Ensure folder exists
+            var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/files");
+
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
+            // Generate unique file name
+            var uniqueFileName = Guid.NewGuid().ToString() + ".pdf";
+
+            var fullPath = Path.Combine(folderPath, uniqueFileName);
+
+            // Save file
+            using (var stream = new FileStream(fullPath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
-            contract.FilePath = "/files/" + file.FileName;
+            // Save relative path to DB
+            contract.FilePath = "/files/" + uniqueFileName;
         }
 
-        _context.Set<Contract>().Add(contract);
+        _context.Contracts.Add(contract);
         await _context.SaveChangesAsync();
 
         return RedirectToAction("Index");
