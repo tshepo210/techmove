@@ -4,6 +4,7 @@
 
 <form asp-action="Create" method="post" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
+    <div asp-validation-summary="All" class="text-danger"></div>
     <select asp-for="ClientId" class="form-control">
         @foreach (var client in ViewBag.Clients)
         {
