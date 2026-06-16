@@ -1,0 +1,50 @@
+version: 2.1
+
+orbs: {}
+
+jobs:
+  build:
+    docker:
+      - image: mcr.microsoft.com/dotnet/sdk:8.0
+    working_directory: ~/repo
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - nuget-{{ checksum "**/*.csproj" }}
+            - nuget-
+
+      - run:
+          name: Install dependencies
+          command: |
+            dotnet --info
+            dotnet restore
+
+      - save_cache:
+          paths:
+            - ~/.nuget/packages
+          key: nuget-{{ checksum "**/*.csproj" }}
+
+      - run:
+          name: Build
+          command: dotnet build --configuration Release --no-restore
+
+      - run:
+          name: Run unit tests and collect results
+          command: |
+            mkdir -p test_results
+            # Run all tests in the repo and produce TRX test result files in test_results/
+            dotnet test --configuration Release --no-build --logger "trx;LogFileName=test_results.trx" --results-directory test_results
+
+      - store_artifacts:
+          path: test_results
+          destination: test_results
+      - store_test_results:
+          path: test_results
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
