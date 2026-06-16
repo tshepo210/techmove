@@ -1,36 +1,34 @@
-﻿using glms.Data;
-using glms.Interfaces;
+﻿using glms.Interfaces;
 using glms.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Json;
 
 [Route("[controller]")]
 public class ServiceRequestController : Controller
 {
-    private readonly AppDbContext _context;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICurrencyService _currencyService;
 
-    public ServiceRequestController(AppDbContext context, ICurrencyService currencyService)
+    public ServiceRequestController(IHttpClientFactory httpClientFactory, ICurrencyService currencyService)
     {
-        _context = context;
+        _httpClientFactory = httpClientFactory;
         _currencyService = currencyService;
     }
 
     [HttpGet("")]
-    public IActionResult Index()
+    public async Task<IActionResult> Index()
     {
-        var requests = _context.ServiceRequests
-            .Include(r => r.Contract)
-            .ThenInclude(c => c.Client)
-            .ToList();
-
+        var client = _httpClientFactory.CreateClient("ApiClient");
+        var requests = await client.GetFromJsonAsync<List<ServiceRequest>>("api/servicerequests") ?? new List<ServiceRequest>();
         return View(requests);
     }
 
     [HttpGet("Create")]
-    public IActionResult Create()
+    public async Task<IActionResult> Create()
     {
-        ViewBag.Contracts = _context.Contracts.ToList();
+        var client = _httpClientFactory.CreateClient("ApiClient");
+        var contracts = await client.GetFromJsonAsync<List<Contract>>("api/contracts") ?? new List<Contract>();
+        ViewBag.Contracts = contracts;
         return View();
     }
 
@@ -38,24 +36,27 @@ public class ServiceRequestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ServiceRequest request)
     {
-        // Validate contract
-        var contract = await _context.Contracts
-            .FirstOrDefaultAsync(c => c.Id == request.ContractId);
+        var client = _httpClientFactory.CreateClient("ApiClient");
 
-        if (contract == null)
+        // Basic validation by asking API for the contract
+        var contractResp = await client.GetAsync($"api/contracts/{request.ContractId}");
+        if (!contractResp.IsSuccessStatusCode)
         {
             ModelState.AddModelError("", "Contract not found.");
         }
-        else if (contract.Status == "Expired" || contract.Status == "On Hold")
+        else
         {
-            ModelState.AddModelError("",
-                "Service Request cannot be created for Expired or On Hold contracts.");
+            var contract = await contractResp.Content.ReadFromJsonAsync<Contract>();
+            if (contract != null && (contract.Status == "Expired" || contract.Status == "On Hold"))
+            {
+                ModelState.AddModelError("", "Service Request cannot be created for Expired or On Hold contracts.");
+            }
         }
 
-        // Validate model
         if (!ModelState.IsValid)
         {
-            ViewBag.Contracts = _context.Contracts.ToList();
+            var contracts = await client.GetFromJsonAsync<List<Contract>>("api/contracts") ?? new List<Contract>();
+            ViewBag.Contracts = contracts;
             return View(request);
         }
 
@@ -71,13 +72,19 @@ public class ServiceRequestController : Controller
         catch
         {
             ModelState.AddModelError("", "Currency conversion failed.");
-            ViewBag.Contracts = _context.Contracts.ToList();
+            var contracts = await client.GetFromJsonAsync<List<Contract>>("api/contracts") ?? new List<Contract>();
+            ViewBag.Contracts = contracts;
             return View(request);
         }
 
-        // Save
-        _context.ServiceRequests.Add(request);
-        await _context.SaveChangesAsync();
+        var resp = await client.PostAsJsonAsync("api/servicerequests", request);
+        if (!resp.IsSuccessStatusCode)
+        {
+            ModelState.AddModelError("", "Failed to create service request via API.");
+            var contracts = await client.GetFromJsonAsync<List<Contract>>("api/contracts") ?? new List<Contract>();
+            ViewBag.Contracts = contracts;
+            return View(request);
+        }
 
         return RedirectToAction(nameof(Index));
     }

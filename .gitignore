@@ -60,3 +60,5 @@ bin/
 obj/
 .vs/
 appsettings.json
+.env
+.env.example

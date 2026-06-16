@@ -1,94 +1,91 @@
-﻿using glms.Data;
-using glms.Models.Entities;
+﻿using glms.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
-public class ContractController : Controller
+namespace glms.Controllers
 {
-    private readonly AppDbContext _context;
-
-    public ContractController(AppDbContext context)
+    public class ContractController : Controller
     {
-        _context = context;
-    }
+        private readonly IHttpClientFactory _httpClientFactory;
 
-    public IActionResult Index(string status, DateTime? startDate, DateTime? endDate)
-    {
-        var contracts = _context.Set<Contract>()
-            .Include(c => c.Client)
-            .AsQueryable();
-
-        // Filter by status
-        if (!string.IsNullOrEmpty(status))
+        public ContractController(IHttpClientFactory httpClientFactory)
         {
-            contracts = contracts.Where(c => c.Status == status);
+            _httpClientFactory = httpClientFactory;
         }
 
-        // Filter by start date
-        if (startDate.HasValue)
+        public async Task<IActionResult> Index(string status, DateTime? startDate, DateTime? endDate)
         {
-            contracts = contracts.Where(c => c.StartDate >= startDate.Value);
+            var client = _httpClientFactory.CreateClient("ApiClient");
+
+            var url = $"api/contracts?status={status}&startDate={(startDate?.ToString("o") ?? string.Empty)}&endDate={(endDate?.ToString("o") ?? string.Empty)}";
+
+            var contracts = await client.GetFromJsonAsync<List<Contract>>(url) ?? new List<Contract>();
+
+            return View(contracts);
         }
 
-        // Filter by end date
-        if (endDate.HasValue)
+        [HttpGet]
+        public async Task<IActionResult> Create()
         {
-            contracts = contracts.Where(c => c.EndDate <= endDate.Value);
+            var client = _httpClientFactory.CreateClient("ApiClient");
+            var clients = await client.GetFromJsonAsync<List<Models.Entities.Client>>("api/clients") ?? new List<Models.Entities.Client>();
+            ViewBag.Clients = clients;
+            return View();
         }
 
-        return View(contracts.ToList());
-    }
-    [HttpGet]
-    public IActionResult Create()
-    {
-        ViewBag.Clients = _context.Clients.ToList();
-        return View();
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create(Contract contract, IFormFile file)
-    {
-        if (file != null)
+        [HttpPost]
+        public async Task<IActionResult> Create(Contract contract, IFormFile file)
         {
-            // Validate file type
-            if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            var client = _httpClientFactory.CreateClient("ApiClient");
+
+            using var form = new MultipartFormDataContent();
+
+            form.Add(new StringContent(contract.ClientId.ToString()), nameof(contract.ClientId));
+            form.Add(new StringContent(contract.StartDate.ToString("o")), nameof(contract.StartDate));
+            form.Add(new StringContent(contract.EndDate.ToString("o")), nameof(contract.EndDate));
+            form.Add(new StringContent(contract.Status ?? string.Empty), nameof(contract.Status));
+            form.Add(new StringContent(contract.ServiceLevel ?? string.Empty), nameof(contract.ServiceLevel));
+
+            if (file != null)
             {
-                ModelState.AddModelError("", "Only PDF files allowed.");
+                if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    ModelState.AddModelError("", "Only PDF files allowed.");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    // re-fetch clients
+                    var clients = await client.GetFromJsonAsync<List<Models.Entities.Client>>("api/clients") ?? new List<Models.Entities.Client>();
+                    ViewBag.Clients = clients;
+                    return View(contract);
+                }
+
+                var streamContent = new StreamContent(file.OpenReadStream());
+                streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType ?? "application/pdf");
+                form.Add(streamContent, "file", file.FileName);
             }
 
-            // STOP if validation fails
-            if (!ModelState.IsValid)
+            var response = await client.PostAsync("api/contracts", form);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
             {
-                ViewBag.Clients = _context.Clients.ToList();
+                // Not authenticated/authorized - redirect to login so user can obtain a token
+                return RedirectToAction("Login", "Auth", new { returnUrl = Url.Action("Create", "Contract") });
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var msg = string.Empty;
+                try { msg = await response.Content.ReadAsStringAsync(); } catch { }
+                ModelState.AddModelError("", string.IsNullOrEmpty(msg) ? "Failed to create contract via API." : $"Failed to create contract via API: {msg}");
+                var clients = await client.GetFromJsonAsync<List<Models.Entities.Client>>("api/clients") ?? new List<Models.Entities.Client>();
+                ViewBag.Clients = clients;
                 return View(contract);
             }
 
-            // Ensure folder exists
-            var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/files");
-
-            if (!Directory.Exists(folderPath))
-            {
-                Directory.CreateDirectory(folderPath);
-            }
-
-            // Generate unique file name
-            var uniqueFileName = Guid.NewGuid().ToString() + ".pdf";
-
-            var fullPath = Path.Combine(folderPath, uniqueFileName);
-
-            // Save file
-            using (var stream = new FileStream(fullPath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            // Save relative path to DB
-            contract.FilePath = "/files/" + uniqueFileName;
+            return RedirectToAction("Index");
         }
-
-        _context.Contracts.Add(contract);
-        await _context.SaveChangesAsync();
-
-        return RedirectToAction("Index");
     }
 }
