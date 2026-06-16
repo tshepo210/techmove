@@ -13,6 +13,7 @@ namespace glms.Data
         public DbSet<Client> Clients { get; set; }
         public DbSet<Contract> Contracts { get; set; }
         public DbSet<ServiceRequest> ServiceRequests { get; set; }
+        public DbSet<glms.Models.Entities.User> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

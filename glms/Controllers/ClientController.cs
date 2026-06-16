@@ -1,23 +1,25 @@
-﻿using glms.Data;
-using glms.Models.Entities;
+﻿using glms.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Json;
 
 namespace glms.Controllers
 {
     public class ClientController : Controller
     {
-        private readonly AppDbContext _context;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public ClientController(AppDbContext context)
+        public ClientController(IHttpClientFactory httpClientFactory)
         {
-            _context = context;
+            _httpClientFactory = httpClientFactory;
         }
-        public IActionResult Index()
+
+        public async Task<IActionResult> Index()
         {
-            var clients = _context.Clients.ToList();
+            var client = _httpClientFactory.CreateClient("ApiClient");
+            var clients = await client.GetFromJsonAsync<List<Client>>("api/clients") ?? new List<Client>();
             return View(clients);
         }
+
         public IActionResult Create()
         {
             return View();
@@ -25,16 +27,21 @@ namespace glms.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(Client client)
+        public async Task<IActionResult> Create(Client client)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
+                return View(client);
+
+            var http = _httpClientFactory.CreateClient("ApiClient");
+            var resp = await http.PostAsJsonAsync("api/clients", client);
+
+            if (!resp.IsSuccessStatusCode)
             {
-                _context.Clients.Add(client);
-                _context.SaveChanges();
-                return RedirectToAction("Index");
+                ModelState.AddModelError("", "Failed to create client via API.");
+                return View(client);
             }
 
-            return View(client);
+            return RedirectToAction("Index");
         }
     }
 }
